@@ -1,0 +1,15 @@
+name: CI - Build, Test, Scan, Publish
+on:
+  push:
+    branches: [ "main" ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build app
+        run: echo "Building fintech app..."
+      - name: Run tests
+        run: echo "Running unit tests..."
+      - name: Trivy scan
+        run: echo "Scanning for vulnerabilities..."
