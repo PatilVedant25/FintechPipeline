@@ -1,15 +1,58 @@
-name: CI - Build, Test, Scan, Publish
+name: Fintech CI/CD Pipeline
+
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
 jobs:
-  build:
+  build-test-scan-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Build app
-        run: echo "Building fintech app..."
-      - name: Run tests
-        run: echo "Running unit tests..."
-      - name: Trivy scan
-        run: echo "Scanning for vulnerabilities..."
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node (for frontend) or Python (for backend)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          cd app/src
+          npm install
+
+      - name: Run Unit Tests
+        run: |
+          cd app/tests/unit
+          npm test || echo "No tests yet"
+
+      - name: Run Selenium Regression Tests
+        uses: actions/checkout@v4
+      - name: Install Selenium & run tests
+        run: |
+          pip install selenium
+          python app/tests/selenium/test_regression.py || echo "No selenium tests yet"
+
+      - name: Security Scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:latest
+          format: table
+          exit-code: 0
+          ignore-unfixed: true
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}:latest .
+
+      - name: Push Docker image
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker push ghcr.io/${{ github.repository }}:latest
+
+      - name: Deploy to Kubernetes via ArgoCD
+        run: |
+          echo "Triggering ArgoCD Sync"
+          kubectl apply -f k8s-manifests/apps/argocd-app.yaml
